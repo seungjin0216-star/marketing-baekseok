@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>장수한우곱창 백석직영점 · 콘텐츠</title>
+<meta name="theme-color" content="#111111">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f0f0f0; color: #222; font-size: 14px; padding-bottom: 40px; }
+.header { background: #111; color: #fff; padding: 13px 16px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+.header h1 { font-size: 15px; font-weight: 700; }
+.header small { font-size: 11px; color: #999; }
+.tabs { display: flex; background: #fff; border-bottom: 2px solid #eee; position: sticky; top: 44px; z-index: 99; }
+.tab { flex: 1; text-align: center; padding: 12px 0; font-size: 12.5px; color: #888; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+.tab.active { color: #111; font-weight: 700; border-bottom-color: #111; }
+.page { display: none; padding: 14px 12px 60px; }
+.page.active { display: block; }
+.card { background: #fff; border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.muted { color: #999; font-size: 12px; }
+.loading, .empty { text-align: center; padding: 44px 16px; color: #bbb; }
+.err { background: #fff5f5; color: #c53030; padding: 11px 14px; border-radius: 10px; font-size: 12.5px; margin-bottom: 10px; }
+.btn { display: block; width: 100%; padding: 14px; border: none; border-radius: 10px; background: #111; color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 10px; }
+.btn:disabled { background: #ccc; }
+.btn.sub { background: #fff; color: #333; border: 1px solid #ddd; font-weight: 500; }
+.btn.small { width: auto; padding: 7px 13px; font-size: 12px; margin: 0; border-radius: 8px; }
+
+/* 미션 */
+.mission { display: flex; gap: 11px; align-items: flex-start; }
+.mission-week { flex: 0 0 auto; background: #111; color: #fff; font-size: 10.5px; padding: 3px 8px; border-radius: 6px; margin-top: 2px; }
+.mission-body { flex: 1; }
+.mission-title { font-weight: 700; font-size: 14px; margin-bottom: 5px; line-height: 1.4; }
+.mission-shot { background: #fffbeb; border-left: 3px solid #f59e0b; padding: 9px 11px; border-radius: 0 8px 8px 0; font-size: 12.5px; color: #78350f; line-height: 1.55; margin-bottom: 8px; }
+.mission-ch { font-size: 11px; color: #666; }
+.chip { display: inline-block; background: #f3f4f6; border-radius: 5px; padding: 2px 7px; margin-right: 4px; font-size: 10.5px; color: #555; }
+.done-card { opacity: .5; }
+
+/* 입력 */
+label { display: block; font-size: 12px; color: #666; margin: 12px 0 5px; font-weight: 600; }
+input[type=text], textarea, select { width: 100%; padding: 11px 12px; border: 1px solid #ddd; border-radius: 9px; font-size: 14px; font-family: inherit; background: #fff; }
+textarea { resize: vertical; min-height: 64px; }
+.photo-drop { border: 2px dashed #ddd; border-radius: 12px; padding: 26px 16px; text-align: center; color: #aaa; cursor: pointer; background: #fafafa; }
+.photo-drop.has { padding: 8px; border-style: solid; }
+.photo-drop img { width: 100%; border-radius: 8px; display: block; }
+.ch-row { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 4px; }
+.ch-btn { flex: 1; min-width: 88px; padding: 10px 6px; border: 1px solid #ddd; border-radius: 9px; background: #fff; font-size: 12.5px; cursor: pointer; }
+.ch-btn.on { background: #111; color: #fff; border-color: #111; }
+
+/* 결과 */
+.result { background: #fff; border-radius: 12px; margin-bottom: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.result-head { display: flex; justify-content: space-between; align-items: center; padding: 11px 14px; border-bottom: 1px solid #f2f2f2; }
+.result-name { font-size: 12.5px; font-weight: 700; }
+.result-body { padding: 13px 14px; font-size: 13.5px; line-height: 1.75; white-space: pre-wrap; word-break: break-word; }
+.result-foot { padding: 0 14px 12px; display: flex; gap: 7px; }
+.count { font-size: 10.5px; color: #aaa; }
+.toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); background: #111; color: #fff; padding: 11px 18px; border-radius: 22px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 999; }
+.toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📸 콘텐츠 공장</h1>
+  <small id="branch">백석직영점</small>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="go('mission')">이번 주 미션</div>
+  <div class="tab" onclick="go('make')">글 만들기</div>
+  <div class="tab" onclick="go('plan')">계획</div>
+</div>
+
+<!-- 이번 주 미션 -->
+<div id="p-mission" class="page active">
+  <div id="mission-box"><div class="loading">불러오는 중...</div></div>
+</div>
+
+<!-- 글 만들기 -->
+<div id="p-make" class="page">
+  <div class="card">
+    <label>주제</label>
+    <input type="text" id="topic" placeholder="예: 불판 위 대창의 순간">
+
+    <label>사진</label>
+    <div class="photo-drop" id="drop" onclick="document.getElementById('photo').click()">
+      <div id="drop-text">사진 올리기 (선택)</div>
+      <img id="preview" style="display:none">
+    </div>
+    <input type="file" id="photo" accept="image/*" style="display:none" onchange="onPhoto(event)">
+    <div class="muted" style="margin-top:6px">AI가 사진을 보고 씁니다. 사진은 저장되지 않습니다.</div>
+
+    <label>메모 <span class="muted">(선택)</span></label>
+    <textarea id="memo" placeholder="예: 오늘 대창 새로 들어옴 / 금요일 만석"></textarea>
+
+    <label>채널</label>
+    <div class="ch-row">
+      <button class="ch-btn on" data-ch="네이버소식" onclick="toggleCh(this)">네이버 소식</button>
+      <button class="ch-btn on" data-ch="인스타" onclick="toggleCh(this)">인스타</button>
+      <button class="ch-btn on" data-ch="당근" onclick="toggleCh(this)">당근</button>
+    </div>
+
+    <button class="btn" id="gen-btn" onclick="generate()">글 만들기</button>
+  </div>
+  <div id="result-box"></div>
+</div>
+
+<!-- 계획 -->
+<div id="p-plan" class="page">
+  <div id="plan-box"><div class="loading">불러오는 중...</div></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const F = "/.netlify/functions";
+let PLAN = null, PHOTO = "", CURRENT = null;
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[<>&]/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]));
+
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 1800);
+}
+
+function go(name) {
+  document.querySelectorAll(".tab").forEach((t, i) => t.classList.toggle("active", ["mission","make","plan"][i] === name));
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  $("p-" + name).classList.add("active");
+  if (name === "plan") renderPlan();
+}
+
+// ── 이번 주 미션 ──────────────────────────────────────────────
+async function loadPlan() {
+  try {
+    const res = await fetch(F + "/plan");
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error || "불러오기 실패");
+    PLAN = d;
+    $("branch").textContent = d.지점 || "";
+    renderMission();
+  } catch (e) {
+    $("mission-box").innerHTML = `<div class="err">${esc(e.message)}</div>`;
+  }
+}
+
+function renderMission() {
+  const box = $("mission-box");
+  const list = PLAN.이번주미션 || [];
+  const 전체 = PLAN.이번달계획 || [];
+
+  if (!전체.length) {
+    box.innerHTML = `<div class="card">
+        <div style="font-weight:700;margin-bottom:6px">${PLAN.연월} 계획이 아직 없습니다</div>
+        <div class="muted" style="line-height:1.6">계획 탭에서 이번 달 콘텐츠를 먼저 세워주세요.<br>AI가 초안을 만들어 드립니다.</div>
+        <button class="btn" onclick="go('plan')">계획 세우러 가기</button>
+      </div>`;
+    return;
+  }
+
+  const done = 전체.filter(r => r.상태 === "완료").length;
+  let html = `<div class="card" style="display:flex;justify-content:space-between;align-items:center">
+      <div><div style="font-weight:700">${PLAN.연월} · ${PLAN.주차}주차</div>
+      <div class="muted">이번 달 ${done}/${전체.length}건 완료</div></div>
+      <button class="btn sub small" onclick="loadPlan()">새로고침</button>
+    </div>`;
+
+  if (!list.length) {
+    html += `<div class="card"><div style="font-weight:700;margin-bottom:5px">이번 주 미션 완료 ✨</div>
+      <div class="muted">다음 주 미션을 기다리거나, 글 만들기 탭에서 자유롭게 작성하실 수 있습니다.</div></div>`;
+  } else {
+    list.forEach(m => {
+      html += `<div class="card"><div class="mission">
+        <div class="mission-week">${esc(m.주차)}주</div>
+        <div class="mission-body">
+          <div class="mission-title">${esc(m.주제)}</div>
+          ${m.필요한사진 ? `<div class="mission-shot">📷 ${esc(m.필요한사진)}</div>` : ""}
+          <div class="mission-ch">${String(m.채널 || "").split(",").filter(Boolean).map(c => `<span class="chip">${esc(c.trim())}</span>`).join("")}</div>
+          <button class="btn" onclick='startMission(${JSON.stringify(m).replace(/'/g, "&#39;")})'>이 미션 하기</button>
+        </div></div></div>`;
+    });
+  }
+
+  const doneList = 전체.filter(r => r.상태 === "완료").slice(-3);
+  if (doneList.length) {
+    html += `<div class="muted" style="margin:14px 4px 6px">최근 완료</div>`;
+    doneList.forEach(m => {
+      html += `<div class="card done-card"><div style="font-size:13px">✓ ${esc(m.주제)}</div>
+        <div class="muted">${esc(m.완료일 || "")}</div></div>`;
+    });
+  }
+  box.innerHTML = html;
+}
+
+function startMission(m) {
+  CURRENT = m;
+  $("topic").value = m.주제 || "";
+  $("memo").value = "";
+  const want = String(m.채널 || "").split(",").map(s => s.trim());
+  document.querySelectorAll(".ch-btn").forEach(b => {
+    b.classList.toggle("on", want.length ? want.includes(b.dataset.ch) : true);
+  });
+  clearPhoto();
+  $("result-box").innerHTML = m.필요한사진
+    ? `<div class="card"><div class="mission-shot">📷 ${esc(m.필요한사진)}</div></div>` : "";
+  go("make");
+  window.scrollTo(0, 0);
+}
+
+// ── 사진 ──────────────────────────────────────────────────────
+function clearPhoto() {
+  PHOTO = "";
+  $("preview").style.display = "none";
+  $("drop-text").style.display = "block";
+  $("drop").classList.remove("has");
+  $("photo").value = "";
+}
+
+function onPhoto(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const img = new Image();
+  const reader = new FileReader();
+  reader.onload = () => { img.src = reader.result; };
+  img.onload = () => {
+    // 긴 변 1024px로 줄여서 전송 (용량·속도 절감)
+    const max = 1024;
+    const scale = Math.min(1, max / Math.max(img.width, img.height));
+    const cv = document.createElement("canvas");
+    cv.width = Math.round(img.width * scale);
+    cv.height = Math.round(img.height * scale);
+    cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+    PHOTO = cv.toDataURL("image/jpeg", 0.82);
+    $("preview").src = PHOTO;
+    $("preview").style.display = "block";
+    $("drop-text").style.display = "none";
+    $("drop").classList.add("has");
+  };
+  reader.readAsDataURL(file);
+}
+
+function toggleCh(btn) { btn.classList.toggle("on"); }
+
+// ── 글 생성 ───────────────────────────────────────────────────
+async function generate() {
+  const 채널 = [...document.querySelectorAll(".ch-btn.on")].map(b => b.dataset.ch);
+  if (!채널.length) return toast("채널을 하나 이상 선택해주세요");
+
+  const btn = $("gen-btn");
+  btn.disabled = true; btn.textContent = "만드는 중... (10~20초)";
+  $("result-box").innerHTML = `<div class="loading">AI가 글을 쓰고 있습니다...</div>`;
+
+  try {
+    const res = await fetch(F + "/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        주제: $("topic").value.trim(),
+        필요한사진: CURRENT?.필요한사진 || "",
+        메모: $("memo").value.trim(),
+        채널, 사진: PHOTO,
+      }),
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error || "생성 실패");
+    renderResult(d.결과, d.사진사용);
+  } catch (e) {
+    $("result-box").innerHTML = `<div class="err">${esc(e.message)}</div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = "글 만들기";
+  }
+}
+
+function renderResult(결과, 사진사용) {
+  let html = "";
+  for (const [ch, text] of Object.entries(결과)) {
+    const id = "r-" + ch;
+    html += `<div class="result">
+      <div class="result-head"><span class="result-name">${esc(ch)}</span>
+        <span class="count">${String(text).length}자</span></div>
+      <div class="result-body" id="${id}">${esc(text)}</div>
+      <div class="result-foot">
+        <button class="btn sub small" onclick="copyText('${id}')">복사</button>
+        <button class="btn small" onclick="markPublished('${esc(ch)}','${id}',${사진사용})">발행했어요</button>
+      </div></div>`;
+  }
+  $("result-box").innerHTML = html;
+}
+
+function copyText(id) {
+  const t = $(id).innerText;
+  navigator.clipboard.writeText(t).then(() => toast("복사했습니다"))
+    .catch(() => { const ta = document.createElement("textarea"); ta.value = t; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); toast("복사했습니다"); });
+}
+
+async function markPublished(채널, id, 사진사용) {
+  try {
+    await fetch(F + "/publish", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        주제: $("topic").value.trim(), 채널, 본문: $(id).innerText,
+        사진사용, 계획id: CURRENT?.id || "",
+      }),
+    });
+    if (CURRENT?.id) {
+      await fetch(F + "/plan", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "done", id: CURRENT.id }),
+      });
+    }
+    toast("기록했습니다");
+    loadPlan();
+  } catch (e) {
+    toast("기록 실패: " + e.message);
+  }
+}
+
+// ── 계획 ──────────────────────────────────────────────────────
+function renderPlan() {
+  if (!PLAN) return;
+  const box = $("plan-box");
+  const list = PLAN.이번달계획 || [];
+
+  let html = `<div class="card">
+      <div style="font-weight:700;margin-bottom:4px">${PLAN.연월} 콘텐츠 계획</div>
+      <div class="muted">AI가 초안을 만들면 확인하고 저장하세요.</div>
+      <label>이번 달 방향 <span class="muted">(선택)</span></label>
+      <textarea id="direction" placeholder="예: 여름 회식 수요 공략 / 신메뉴 알리기"></textarea>
+      <button class="btn" id="sug-btn" onclick="suggest()">AI에게 계획 제안받기</button>
+    </div>`;
+
+  if (list.length) {
+    html += `<div class="muted" style="margin:14px 4px 6px">저장된 계획 ${list.length}건</div>`;
+    [1,2,3,4,5].forEach(w => {
+      const wk = list.filter(r => String(r.주차) === String(w));
+      if (!wk.length) return;
+      html += `<div class="card"><div style="font-weight:700;font-size:12.5px;margin-bottom:8px">${w}주차</div>`;
+      wk.forEach(r => {
+        html += `<div style="padding:8px 0;border-top:1px solid #f5f5f5">
+          <div style="font-size:13px">${r.상태 === "완료" ? "✓ " : ""}${esc(r.주제)}</div>
+          ${r.필요한사진 ? `<div class="muted" style="margin-top:3px">📷 ${esc(r.필요한사진)}</div>` : ""}
+        </div>`;
+      });
+      html += `</div>`;
+    });
+  }
+  box.innerHTML = html;
+}
+
+async function suggest() {
+  const btn = $("sug-btn");
+  btn.disabled = true; btn.textContent = "생각하는 중... (15초쯤)";
+  try {
+    const res = await fetch(F + "/plan", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "suggest", 연월: PLAN.연월, 방향: $("direction").value.trim() }),
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error || "제안 실패");
+    showSuggestion(d.items || []);
+  } catch (e) {
+    $("plan-box").insertAdjacentHTML("afterbegin", `<div class="err">${esc(e.message)}</div>`);
+  } finally {
+    btn.disabled = false; btn.textContent = "AI에게 계획 제안받기";
+  }
+}
+
+let SUGGESTED = [];
+function showSuggestion(items) {
+  SUGGESTED = items;
+  let html = `<div class="card"><div style="font-weight:700;margin-bottom:8px">AI 제안 ${items.length}건</div>
+    <div class="muted" style="margin-bottom:10px">마음에 들면 저장하세요. 마음에 안 드는 건 지우고 저장하면 됩니다.</div>`;
+  items.forEach((it, i) => {
+    html += `<div style="padding:10px 0;border-top:1px solid #f5f5f5" id="sg-${i}">
+      <div style="display:flex;justify-content:space-between;gap:8px">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600">${it.주차}주 · ${esc(it.주제)}</div>
+          <div class="muted" style="margin-top:4px;line-height:1.5">📷 ${esc(it.필요한사진 || "")}</div>
+          <div style="margin-top:5px">${String(it.채널 || "").split(",").map(c => `<span class="chip">${esc(c.trim())}</span>`).join("")}</div>
+        </div>
+        <button class="btn sub small" style="align-self:flex-start" onclick="dropItem(${i})">삭제</button>
+      </div></div>`;
+  });
+  html += `<button class="btn" onclick="savePlan()">이대로 저장</button></div>`;
+  $("plan-box").insertAdjacentHTML("afterbegin", html);
+  window.scrollTo(0, 0);
+}
+
+function dropItem(i) { SUGGESTED[i] = null; const el = $("sg-" + i); if (el) el.remove(); }
+
+async function savePlan() {
+  const items = SUGGESTED.filter(Boolean);
+  if (!items.length) return toast("저장할 항목이 없습니다");
+  try {
+    const res = await fetch(F + "/plan", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "save", 연월: PLAN.연월, items }),
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error || "저장 실패");
+    toast(`${d.saved}건 저장했습니다`);
+    SUGGESTED = [];
+    await loadPlan();
+    renderPlan();
+  } catch (e) {
+    toast("저장 실패: " + e.message);
+  }
+}
+
+loadPlan();
+</script>
+</body>
+</html>

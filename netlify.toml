@@ -1,0 +1,15 @@
+[build]
+  publish = "."
+  command = ""
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# 촬영 미션 알림 — 화요일·금요일 오전 10시 (KST)
+# cron 은 UTC 기준이라 01:00 UTC = 10:00 KST
+[functions."notify-mission"]
+  schedule = "0 1 * * 2,5"
