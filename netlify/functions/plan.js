@@ -58,6 +58,18 @@ async function suggest({ 연월, 방향 = "", 개수 = 8 }) {
   const rows = await readTab(T.name, T.headers);
   const 지난주제 = rows.slice(-20).map((r) => r["주제"]).filter(Boolean);
 
+  // 최근 두 달간 모아둔 업계 인사이트를 계획에 반영한다.
+  // 카톡방에서 읽은 흐름이 실제 콘텐츠로 이어지게 하는 부분.
+  let 인사이트 = [];
+  try {
+    const IT = CFG.TABS.인사이트;
+    const since = new Date(Date.now() - 60 * 86400000).toISOString().slice(0, 10);
+    인사이트 = (await readTab(IT.name, IT.headers))
+      .filter((r) => (r["수집일"] || "") >= since)
+      .slice(-40)
+      .map((r) => `- [${r["분류"]}] ${r["요약"]}`);
+  } catch (e) { /* 인사이트가 없어도 계획은 세운다 */ }
+
   const prompt = `당신은 '${CFG.FULL_NAME}'의 마케팅 담당자입니다.
 ${연월} 한 달치 콘텐츠 계획을 ${개수}건 세워주세요.
 
@@ -71,6 +83,11 @@ ${방향 || "특별한 요청 없음 — 계절과 요일 특성을 고려해 �
 
 [최근에 다룬 주제 — 겹치지 않게]
 ${지난주제.length ? 지난주제.join(", ") : "없음"}
+
+[업계에서 요즘 나오는 이야기 — 최근 2개월 수집]
+${인사이트.length ? 인사이트.join("\n") : "수집된 내용 없음"}
+※ 위 흐름을 참고해 지금 통할 만한 주제로 구성하세요.
+   예를 들어 블로그 효과가 떨어졌다는 얘기가 많으면 플레이스 소식글·영수증리뷰 쪽에 무게를 두는 식으로.
 
 [지켜야 할 것]
 - 주차를 1~4주로 고르게 나눌 것

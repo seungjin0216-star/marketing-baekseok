@@ -65,9 +65,10 @@ textarea { resize: vertical; min-height: 64px; }
 </div>
 
 <div class="tabs">
-  <div class="tab active" onclick="go('mission')">이번 주 미션</div>
+  <div class="tab active" onclick="go('mission')">미션</div>
   <div class="tab" onclick="go('make')">글 만들기</div>
   <div class="tab" onclick="go('plan')">계획</div>
+  <div class="tab" onclick="go('insight')">인사이트</div>
 </div>
 
 <!-- 이번 주 미션 -->
@@ -109,6 +110,32 @@ textarea { resize: vertical; min-height: 64px; }
   <div id="plan-box"><div class="loading">불러오는 중...</div></div>
 </div>
 
+<!-- 인사이트 -->
+<div id="p-insight" class="page">
+  <div class="card">
+    <div style="font-weight:700;margin-bottom:4px">카톡방 인사이트 모으기</div>
+    <div class="muted" style="line-height:1.6">
+      오픈채팅방 → ☰ → <b>대화 내보내기</b> → 텍스트만<br>
+      받은 파일을 올리거나 내용을 붙여넣으세요. 쓸 만한 것만 골라 정리합니다.
+    </div>
+
+    <label>대화 파일 <span class="muted">(.txt)</span></label>
+    <div class="photo-drop" id="ins-drop" onclick="document.getElementById('ins-file').click()">
+      <div id="ins-drop-text">파일 선택</div>
+    </div>
+    <input type="file" id="ins-file" accept=".txt,text/plain" style="display:none" onchange="onInsightFile(event)">
+
+    <label>또는 붙여넣기</label>
+    <textarea id="ins-text" placeholder="대화 내용을 붙여넣으세요" style="min-height:90px"></textarea>
+
+    <button class="btn" id="ins-btn" onclick="uploadInsight()">정리하기</button>
+    <div class="muted" style="margin-top:8px">닉네임은 저장하지 않습니다. 이미 저장한 내용은 자동으로 건너뜁니다.</div>
+  </div>
+
+  <div id="ins-result"></div>
+  <div id="ins-list"><div class="loading">불러오는 중...</div></div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -124,10 +151,93 @@ function toast(msg) {
 }
 
 function go(name) {
-  document.querySelectorAll(".tab").forEach((t, i) => t.classList.toggle("active", ["mission","make","plan"][i] === name));
+  document.querySelectorAll(".tab").forEach((t, i) => t.classList.toggle("active", ["mission","make","plan","insight"][i] === name));
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
   $("p-" + name).classList.add("active");
   if (name === "plan") renderPlan();
+  if (name === "insight") loadInsights();
+}
+
+// ── 인사이트 ──────────────────────────────────────────────────
+let INS_TEXT = "";
+
+function onInsightFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    INS_TEXT = String(reader.result || "");
+    $("ins-drop-text").textContent = `${file.name} · ${(INS_TEXT.length / 1000).toFixed(0)}천자`;
+  };
+  reader.readAsText(file, "utf-8");
+}
+
+async function uploadInsight() {
+  const text = INS_TEXT || $("ins-text").value.trim();
+  if (text.length < 100) return toast("대화 내용이 너무 짧습니다");
+
+  const btn = $("ins-btn");
+  btn.disabled = true; btn.textContent = "읽는 중... (20~40초)";
+  $("ins-result").innerHTML = '<div class="loading">쓸 만한 내용을 고르고 있습니다...</div>';
+
+  try {
+    const res = await fetch(F + "/insight", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, 출처: "오픈채팅" }),
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error || "실패");
+
+    $("ins-result").innerHTML = `<div class="card">
+      <div style="font-weight:700">정리 완료</div>
+      <div class="muted" style="margin-top:5px">후보 ${d.후보}건 중 <b>${d.저장}건</b> 저장${d.message ? " · " + esc(d.message) : ""}</div>
+    </div>`;
+    INS_TEXT = ""; $("ins-text").value = ""; $("ins-drop-text").textContent = "파일 선택";
+    loadInsights();
+  } catch (e) {
+    $("ins-result").innerHTML = `<div class="err">${esc(e.message)}</div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = "정리하기";
+  }
+}
+
+async function loadInsights() {
+  const box = $("ins-list");
+  try {
+    const res = await fetch(F + "/insight");
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error || "불러오기 실패");
+    const rows = d.rows || [];
+    if (!rows.length) { box.innerHTML = '<div class="card muted">아직 모아둔 인사이트가 없습니다.</div>'; return; }
+
+    const byCat = {};
+    rows.forEach(r => { (byCat[r.분류 || "기타"] ??= []).push(r); });
+
+    const doable = rows.filter(r => r.실행가능 === "Y");
+    let html = `<div class="muted" style="margin:14px 4px 6px">모아둔 인사이트 ${d.total}건</div>`;
+
+    if (doable.length) {
+      html += `<div class="card" style="border-left:3px solid #f59e0b">
+        <div style="font-weight:700;margin-bottom:6px">⚡ 바로 해볼 수 있는 것</div>
+        ${doable.slice(0, 5).map(r => `<div style="padding:7px 0;border-top:1px solid #f5f5f5;font-size:13px;line-height:1.6">${esc(r.요약)}</div>`).join("")}
+      </div>`;
+    }
+
+    for (const [cat, list] of Object.entries(byCat)) {
+      html += `<div class="card">
+        <div style="font-weight:700;font-size:12.5px;margin-bottom:6px">${esc(cat)} <span class="muted">${list.length}건</span></div>
+        ${list.slice(0, 8).map(r => `
+          <div style="padding:8px 0;border-top:1px solid #f5f5f5">
+            <div style="font-size:13px;line-height:1.6">${esc(r.요약)}</div>
+            ${r.원문 ? `<div class="muted" style="margin-top:4px;font-size:11.5px">“${esc(r.원문).slice(0, 90)}”</div>` : ""}
+            <div class="muted" style="margin-top:3px;font-size:11px">${esc(r.발화일 || r.수집일 || "")}</div>
+          </div>`).join("")}
+      </div>`;
+    }
+    box.innerHTML = html;
+  } catch (e) {
+    box.innerHTML = `<div class="err">${esc(e.message)}</div>`;
+  }
 }
 
 // ── 이번 주 미션 ──────────────────────────────────────────────
