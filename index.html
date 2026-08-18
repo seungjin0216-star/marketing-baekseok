@@ -254,6 +254,45 @@ async function loadPlan() {
   }
 }
 
+/**
+ * 순위 트래커에서 온 "지금 밀리는 키워드" 카드
+ * 연결 안 됐거나 읽기 실패하면 아무것도 안 그린다 (미션 화면을 방해하지 않는다)
+ */
+function renderRankCard() {
+  const r = PLAN.순위;
+  if (!r) return "";
+  if (r.사유) {
+    return `<div class="card muted" style="font-size:12px">순위 연결 대기 — ${esc(r.사유)}</div>`;
+  }
+  const 밀림 = r.밀림 || [], 놓침 = r.놓침 || [], 지킴 = r.지킴 || [];
+  if (!밀림.length && !놓침.length && !지킴.length) return "";
+
+  const 순 = x => x.최근순위 >= 999 ? "순위밖" : x.최근순위 + "위";
+  let h = `<div class="card" style="border-left:3px solid #ef4444">
+    <div style="font-weight:700;margin-bottom:6px">📉 지금 순위 <span class="muted" style="font-weight:400">${esc(r.측정일 || "")}</span></div>`;
+
+  if (밀림.length) {
+    h += `<div style="font-size:12.5px;margin-bottom:4px">일주일 새 밀린 것</div>
+      <div style="margin-bottom:8px">` +
+      밀림.map(x => `<span class="chip" style="background:#fee2e2;color:#b91c1c">${esc(x.키워드)} ${순(x)} ▼${-x.변화}</span>`).join("") +
+      `</div>`;
+  }
+  if (놓침.length) {
+    h += `<div style="font-size:12.5px;margin-bottom:4px">아직 못 잡은 것</div>
+      <div style="margin-bottom:8px">` +
+      놓침.map(x => `<span class="chip">${esc(x.키워드)} ${순(x)}</span>`).join("") +
+      `</div>`;
+  }
+  if (지킴.length) {
+    h += `<div class="muted" style="font-size:12px">지키는 중 — ` +
+      지킴.map(x => `${esc(x.키워드)} ${순(x)}`).join(" · ") + `</div>`;
+  }
+
+  h += `<div class="muted" style="font-size:11.5px;margin-top:8px;line-height:1.5">
+    계획을 새로 세우면 AI가 이 순위를 보고 주제를 고릅니다.</div></div>`;
+  return h;
+}
+
 function renderMission() {
   const box = $("mission-box");
   const list = PLAN.이번주미션 || [];
@@ -274,6 +313,8 @@ function renderMission() {
       <div class="muted">이번 달 ${done}/${전체.length}건 완료</div></div>
       <button class="btn sub small" onclick="loadPlan()">새로고침</button>
     </div>`;
+
+  html += renderRankCard();
 
   if (!list.length) {
     html += `<div class="card"><div style="font-weight:700;margin-bottom:5px">이번 주 미션 완료 ✨</div>

@@ -7,6 +7,7 @@
  *   POST /plan  {action:"done", id:"..."}                        미션 완료 처리
  */
 const { readTab, appendRows, updateCell, json } = require("./_google");
+const { getRankBrief } = require("./_rank");
 const CFG = require("./_config");
 
 const T = CFG.TABS.계획;
@@ -41,6 +42,22 @@ async function getPlan() {
   const 연월 = ym();
   const 주차 = weekOfMonth();
   const month = rows.filter((r) => r["연월"] === 연월);
+
+  // 홈에 "지금 밀리는 키워드"를 같이 보여준다. 실패해도 계획은 나와야 한다.
+  let 순위 = null;
+  try {
+    const b = await getRankBrief();
+    if (b) {
+      순위 = {
+        측정일: b.측정일 || "",
+        밀림: (b.밀림 || []).slice(0, 5),
+        놓침: (b.놓침 || []).slice(0, 5),
+        지킴: (b.지킴 || []).slice(0, 5),
+        사유: b.사유 || "",
+      };
+    }
+  } catch (e) { /* 순위는 곁다리다 */ }
+
   return {
     연월,
     주차,
@@ -48,6 +65,7 @@ async function getPlan() {
     이번달계획: month,
     지난달있음: rows.some((r) => r["연월"] < 연월),
     지점: CFG.BRANCH,
+    순위,
   };
 }
 
@@ -70,13 +88,20 @@ async function suggest({ 연월, 방향 = "", 개수 = 8 }) {
       .map((r) => `- [${r["분류"]}] ${r["요약"]}`);
   } catch (e) { /* 인사이트가 없어도 계획은 세운다 */ }
 
+  // 순위 트래커가 재고 있는 실제 순위 — 어느 키워드를 노릴지 정하는 근거
+  let 순위 = "";
+  try {
+    const brief = await getRankBrief();
+    if (brief && brief.prompt) 순위 = "\n\n" + brief.prompt;
+  } catch (e) { /* 순위를 못 읽어도 계획은 세운다 */ }
+
   const prompt = `당신은 '${CFG.FULL_NAME}'의 마케팅 담당자입니다.
 ${연월} 한 달치 콘텐츠 계획을 ${개수}건 세워주세요.
 
 [가게 정보]
 지역 키워드: ${CFG.AREA_KEYWORDS.join(", ")}
 메뉴: ${CFG.MENU_KEYWORDS.join(", ")}
-강점: ${CFG.SELLING_POINTS.join(" / ")}
+강점: ${CFG.SELLING_POINTS.join(" / ")}${순위}
 
 [이번 달 방향]
 ${방향 || "특별한 요청 없음 — 계절과 요일 특성을 고려해 알아서 구성"}

@@ -77,6 +77,31 @@ async function api(path, options = {}) {
   return data;
 }
 
+/**
+ * 다른 스프레드시트의 탭을 읽기 전용으로 가져오기 (순위 트래커용)
+ *
+ * ⚠️ 그 시트에 이 앱의 서비스 계정이 "뷰어"로 공유돼 있어야 합니다.
+ *    공유가 안 돼 있으면 403 이 납니다. 호출하는 쪽에서 잡아서 넘기세요.
+ * ⚠️ readTab 과 달리 탭이 없어도 만들지 않습니다. 남의 시트를 건드리지 않습니다.
+ */
+async function readTabFrom(sheetId, tab) {
+  const token = await getToken();
+  const res = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(tab)}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error?.message || `시트 읽기 실패 (${res.status})`);
+  const values = data.values || [];
+  if (values.length < 2) return [];
+  const head = values[0];
+  return values.slice(1).map((row) => {
+    const o = {};
+    head.forEach((h, i) => { o[h] = row[i] ?? ""; });
+    return o;
+  });
+}
+
 /** 탭 전체를 객체 배열로 읽기. 탭이 없으면 만들고 빈 배열 반환 */
 async function readTab(tab, headers) {
   try {
@@ -151,4 +176,4 @@ function json(status, body) {
   };
 }
 
-module.exports = { readTab, appendRow, appendRows, updateCell, json };
+module.exports = { readTab, readTabFrom, appendRow, appendRows, updateCell, json };

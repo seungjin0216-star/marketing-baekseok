@@ -8,6 +8,7 @@
  */
 const CFG = require("./_config");
 const { json } = require("./_google");
+const { getRankBrief } = require("./_rank");
 
 const 채널설명 = {
   네이버소식: `네이버 플레이스 소식글.
@@ -51,6 +52,27 @@ exports.handler = async (event) => {
       사진안내 = "위 사진을 직접 보고, 실제로 보이는 것만 묘사하세요. 사진에 없는 것을 지어내지 마세요.";
     }
 
+    // 지금 밀리는 키워드를 글에 자연스럽게 녹이도록 알려준다.
+    // 트래커가 안 읽혀도 글은 써져야 하므로 실패는 무시한다.
+    let 노릴키워드 = "";
+    try {
+      const brief = await getRankBrief();
+      if (brief) {
+        const 약한것 = [...(brief.밀림 || []), ...(brief.놓침 || [])]
+          .map((x) => x.키워드)
+          .filter((v, i, a) => a.indexOf(v) === i)
+          .slice(0, 5);
+        if (약한것.length) {
+          노릴키워드 = `
+
+[지금 순위가 밀리는 키워드 — ${brief.측정일 || "최근"} 기준]
+${약한것.join(", ")}
+※ 주제와 어울리는 것만 골라 문장에 자연스럽게 넣으세요.
+   억지로 다 넣지 마세요. 어색하면 안 넣는 게 낫습니다.`;
+        }
+      }
+    } catch (e) { /* 순위는 있으면 좋은 것일 뿐 */ }
+
     const prompt = `당신은 '${CFG.FULL_NAME}' 사장님입니다. 아래 조건으로 채널별 글을 써주세요.
 
 [이번 콘텐츠]
@@ -66,6 +88,7 @@ ${사진안내}
 메뉴: ${CFG.MENU_KEYWORDS.join(", ")}
 강점: ${CFG.SELLING_POINTS.join(" / ")}
 말투: ${CFG.TONE}
+${노릴키워드}
 
 [공통 금지사항]
 - 없는 사실을 지어내지 말 것 (가격·이벤트·수상 이력 등)
