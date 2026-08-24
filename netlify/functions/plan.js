@@ -8,6 +8,7 @@
  */
 const { readTab, appendRows, updateCell, json } = require("./_google");
 const { getRankBrief } = require("./_rank");
+const { getPlaceInfo, 프롬프트문장: 매장문장, 소식공백일수 } = require("./_place");
 const CFG = require("./_config");
 
 const T = CFG.TABS.계획;
@@ -95,13 +96,26 @@ async function suggest({ 연월, 방향 = "", 개수 = 8 }) {
     if (brief && brief.prompt) 순위 = "\n\n" + brief.prompt;
   } catch (e) { /* 순위를 못 읽어도 계획은 세운다 */ }
 
+  // 우리 가게가 실제로 뭘 파는지 — 없으면 뻔한 주제만 나온다
+  let 매장 = "";
+  try {
+    const info = await getPlaceInfo();
+    const t = 매장문장(info, { 소개글길이: 500 });
+    if (t) 매장 = "\n\n" + t;
+    const 공백 = 소식공백일수(info);
+    if (공백 !== null && 공백 > 45) {
+      매장 += `\n\n※ 마지막 소식글이 ${공백}일 전입니다. 소식글이 오래 비면 플레이스 노출에 불리하므로,`
+            + ` 이번 달 계획에 네이버 소식글을 우선으로 넣으세요.`;
+    }
+  } catch (e) { /* 매장 정보를 못 읽어도 계획은 세운다 */ }
+
   const prompt = `당신은 '${CFG.FULL_NAME}'의 마케팅 담당자입니다.
 ${연월} 한 달치 콘텐츠 계획을 ${개수}건 세워주세요.
 
 [가게 정보]
 지역 키워드: ${CFG.AREA_KEYWORDS.join(", ")}
 메뉴: ${CFG.MENU_KEYWORDS.join(", ")}
-강점: ${CFG.SELLING_POINTS.join(" / ")}${순위}
+강점: ${CFG.SELLING_POINTS.join(" / ")}${매장}${순위}
 
 [이번 달 방향]
 ${방향 || "특별한 요청 없음 — 계절과 요일 특성을 고려해 알아서 구성"}

@@ -9,6 +9,7 @@
 const CFG = require("./_config");
 const { json } = require("./_google");
 const { getRankBrief } = require("./_rank");
+const { getPlaceInfo, 프롬프트문장: 매장문장 } = require("./_place");
 
 const 채널설명 = {
   네이버소식: `네이버 플레이스 소식글.
@@ -73,6 +74,13 @@ ${약한것.join(", ")}
       }
     } catch (e) { /* 순위는 있으면 좋은 것일 뿐 */ }
 
+    // 실제 메뉴 이름·소개글을 알려준다. 없으면 "맛있는 곱창" 같은 뻔한 말만 나온다.
+    let 매장 = "";
+    try {
+      const t = 매장문장(await getPlaceInfo(), { 소개글길이: 400 });
+      if (t) 매장 = "\n" + t + "\n";
+    } catch (e) { /* 매장 정보는 있으면 좋은 것 */ }
+
     const prompt = `당신은 '${CFG.FULL_NAME}' 사장님입니다. 아래 조건으로 채널별 글을 써주세요.
 
 [이번 콘텐츠]
@@ -88,7 +96,7 @@ ${사진안내}
 메뉴: ${CFG.MENU_KEYWORDS.join(", ")}
 강점: ${CFG.SELLING_POINTS.join(" / ")}
 말투: ${CFG.TONE}
-${노릴키워드}
+${매장}${노릴키워드}
 
 [공통 금지사항]
 - 없는 사실을 지어내지 말 것 (가격·이벤트·수상 이력 등)
