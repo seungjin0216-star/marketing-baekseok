@@ -78,6 +78,11 @@ textarea { resize: vertical; min-height: 64px; }
 
 <!-- 글 만들기 -->
 <div id="p-make" class="page">
+  <!-- ⚠️ 2026-09-29 — 미션을 여기서 바로 고를 수 있게 했습니다.
+       탭이 넷이면 사람은 「글 만들기」로 바로 옵니다. 미션 탭을 거쳐야 한다는 걸
+       알 수가 없어서, 사장님이 주제를 직접 적어야 하는 줄 아셨습니다. -->
+  <div id="make-mission" style="display:none"></div>
+
   <div class="card">
     <label>주제</label>
     <input type="text" id="topic" placeholder="예: 불판 위 대창의 순간">
@@ -247,8 +252,10 @@ async function loadPlan() {
     const d = await res.json();
     if (!res.ok) throw new Error(d.error || "불러오기 실패");
     PLAN = d;
+    미션목록_ = d.이번주미션 || [];
     $("branch").textContent = d.지점 || "";
     renderMission();
+    미션바그리기_();          // ⚠️ 글 만들기 탭에도 띄웁니다
   } catch (e) {
     $("mission-box").innerHTML = `<div class="err">${esc(e.message)}</div>`;
   }
@@ -348,6 +355,34 @@ function renderMission() {
   }
   box.innerHTML = html;
 }
+
+// ⚠️ 2026-09-29 — 글 만들기 탭 맨 위에 이번 주 미션을 띄웁니다.
+//    누르면 주제가 채워집니다. 미션 탭을 안 거쳐도 됩니다.
+function 미션바그리기_() {
+  const box = $("make-mission");
+  if (!box) return;
+  const list = (PLAN && PLAN.이번주미션) || [];
+  if (!list.length) { box.style.display = "none"; return; }
+
+  box.style.display = "block";
+  box.innerHTML =
+    '<div class="card" style="background:#fffbeb;border:1px solid #fde68a">' +
+      '<div style="font-weight:700;font-size:13.5px;margin-bottom:8px">' +
+        '📌 이번 주에 올릴 것 — 눌러서 가져오기</div>' +
+      list.map(function (m, i) {
+        return '<div onclick="startMission(미션목록_[' + i + '])" ' +
+               'style="padding:11px 12px;margin-bottom:7px;background:#fff;border-radius:10px;' +
+               'border:1px solid #fde68a;cursor:pointer;word-break:keep-all">' +
+                 '<div style="font-weight:600;font-size:13.5px;line-height:1.45">' +
+                   esc(m.주제 || "") + '</div>' +
+                 (m.필요한사진
+                   ? '<div style="font-size:12px;color:#92400e;margin-top:5px;line-height:1.5">📷 ' +
+                     esc(m.필요한사진) + '</div>' : '') +
+               '</div>';
+      }).join("") +
+    '</div>';
+}
+let 미션목록_ = [];
 
 function startMission(m) {
   CURRENT = m;

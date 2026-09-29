@@ -6,7 +6,7 @@
  *   POST /plan  {action:"save", 연월:"2026-08", items:[...]}     계획 확정 저장
  *   POST /plan  {action:"done", id:"..."}                        미션 완료 처리
  */
-const { readTab, appendRows, updateCell, json } = require("./_google");
+const { readTab, appendRows, updateCell, clearTab, json } = require("./_google");
 const { getRankBrief } = require("./_rank");
 const { getPlaceInfo, 프롬프트문장: 매장문장, 소식공백일수 } = require("./_place");
 const CFG = require("./_config");
@@ -32,10 +32,21 @@ function ym(d = new Date()) {
   return `${k.getFullYear()}-${String(k.getMonth() + 1).padStart(2, "0")}`;
 }
 
-/** 이달 며칠인지로 몇째 주인지 (1~5) */
+/** 이달 며칠인지로 몇째 주인지 (1~4)
+ *
+ *  🔴 2026-09-29 — 5주차를 없앴습니다.
+ *
+ *  ⚠️ 그전에는 1~5주였는데 계획은 1~4주만 만들었습니다.
+ *     그래서 **매달 29~31일 사흘은 미션이 통째로 비었고**,
+ *     화면에는 「이번 주 미션 완료 ✨」로 떴습니다.
+ *     사장님이 하필 9/29 에 여셔서 이걸 보셨습니다.
+ *
+ *  ⚠️ 오류가 안 납니다. 그냥 「할 게 없다」고 나옵니다 — 또 조용한 실패입니다.
+ *     이제 29~31일은 4주차로 칩니다.
+ */
 function weekOfMonth(d = new Date()) {
   const k = new Date(d.toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
-  return Math.min(5, Math.ceil(k.getDate() / 7));
+  return Math.min(4, Math.ceil(k.getDate() / 7));
 }
 
 async function getPlan() {
@@ -70,7 +81,10 @@ async function getPlan() {
   };
 }
 
-async function suggest({ 연월, 방향 = "", 개수 = 8 }) {
+// ⚠️ 2026-09-29 — 8건 → 6건 (한 주에 1~2건)
+//    사장님: 「이번주 3,4개는 너무 많아. 주에 1,2개로 하자」
+//    ⚠️ 많이 주면 아예 손을 안 댑니다. 적게 주고 실제로 하는 게 낫습니다.
+async function suggest({ 연월, 방향 = "", 개수 = 6 }) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY 환경변수가 없습니다.");
 
@@ -129,7 +143,10 @@ ${인사이트.length ? 인사이트.join("\n") : "수집된 내용 없음"}
    예를 들어 블로그 효과가 떨어졌다는 얘기가 많으면 플레이스 소식글·영수증리뷰 쪽에 무게를 두는 식으로.
 
 [지켜야 할 것]
-- 주차를 1~4주로 고르게 나눌 것
+- 주차는 1~4주만 씁니다. 5주차는 없습니다
+- ⚠️ 한 주에 1~2건만 넣으세요. 절대 3건 이상 넣지 마세요
+  (사장님이 혼자 하십니다. 많으면 아예 손을 안 댑니다)
+- 같은 주제를 두 번 쓰지 마세요. 제목이 비슷해도 안 됩니다
 - 각 건마다 "어떤 사진을 찍어야 하는지" 구체적으로 지시할 것
   (예: "불판 위에서 대창이 익어가는 순간을 위에서 클로즈업")
 - 사장님이 실제로 찍을 수 있는 사진이어야 함. 연출이 과한 것 금지
@@ -162,12 +179,30 @@ ${인사이트.length ? 인사이트.join("\n") : "수집된 내용 없음"}
   return { items: parsed.items || [] };
 }
 
+// ⚠️ 2026-09-29 — 그 달 계획을 **갈아끼웁니다**
+//
+//    그전에는 append 만 해서 「AI에게 계획 제안받기」를 누를 때마다 쌓였습니다.
+//    사장님 시트에 같은 글이 24건까지 불었습니다.
+//
+//    ⚠️ 이미 완료한 것은 남깁니다. 한 일까지 지우면 기록이 사라집니다.
+//    ⚠️ 다른 달 계획은 건드리지 않습니다.
 async function save({ 연월, items }) {
   if (!Array.isArray(items) || !items.length) throw new Error("저장할 계획이 없습니다.");
   const rows = await readTab(T.name, T.headers);
-  let next = rows.length + 1;
   const today = new Date().toISOString().slice(0, 10);
 
+  // 남길 것: 다른 달 전부 + 이 달에서 이미 완료한 것
+  const 남길것 = rows.filter((r) =>
+    String(r["연월"]) !== String(연월) || String(r["상태"]) === "완료"
+  );
+  const 지운수 = rows.length - 남길것.length;
+
+  if (지운수 > 0) {
+    await clearTab(T.name, T.headers);
+    if (남길것.length) await appendRows(T.name, T.headers, 남길것);
+  }
+
+  let next = 남길것.length + 1;
   await appendRows(T.name, T.headers, items.map((it) => ({
     id: `${연월}-${next++}`,
     연월,
@@ -179,7 +214,7 @@ async function save({ 연월, items }) {
     생성일: today,
     완료일: "",
   })));
-  return { saved: items.length };
+  return { saved: items.length, 지운수 };
 }
 
 async function markDone({ id }) {

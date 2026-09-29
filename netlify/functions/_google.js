@@ -168,6 +168,18 @@ async function updateCell(tab, headers, rowIndex, column, value) {
   });
 }
 
+/** 머리글만 남기고 내용을 전부 지운다
+ *
+ *  ⚠️ 2026-09-29 — 계획을 다시 만들 때 옛 것을 지우려고 만들었습니다.
+ *     그전에는 append 만 해서 「AI에게 계획 제안받기」를 누를 때마다 쌓였고,
+ *     사장님 시트에 같은 글이 24건까지 불었습니다.
+ *  ⚠️ 되돌릴 수 없습니다. 부르기 전에 정말 지워도 되는지 확인하십시오.
+ */
+async function clearTab(tab, headers) {
+  await readTab(tab, headers);          // 탭이 없으면 만들어집니다
+  await api(`/values/${encodeURIComponent(tab)}!A2:Z10000:clear`, { method: "POST", body: "{}" });
+}
+
 function json(status, body) {
   return {
     statusCode: status,
@@ -176,4 +188,4 @@ function json(status, body) {
   };
 }
 
-module.exports = { readTab, readTabFrom, appendRow, appendRows, updateCell, json };
+module.exports = { readTab, readTabFrom, appendRow, appendRows, updateCell, clearTab, json };
