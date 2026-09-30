@@ -66,6 +66,26 @@ const SHEET_ID = () => {
   return id;
 };
 
+// ══════════════════════════════════════════════════════════════════
+//  🔴 valueInputOption 은 반드시 RAW 입니다   2026-09-30
+//
+//  ⚠️ 그전에는 USER_ENTERED 였습니다. 그러면 **구글이 값을 해석합니다.**
+//
+//       "2026-09"     →  「2026년 9월」로 보고 숫자 46266 으로 저장
+//       "2026-09-30"  →  날짜로 보고 숫자로 저장
+//       "2026-09-31"  →  없는 날짜라 글자로 남음   ← 같은 열에 둘이 섞임
+//
+//     그래서 코드가  r["연월"] === "2026-09"  로 찾으면 **영원히 못 찾습니다.**
+//     시트에는 46266 이 들어 있으니까요.
+//
+//  ⚠️ 저장은 계속 되고 있었습니다. 다만 저장한 것을 다시 못 읽었습니다.
+//     화면에는 「저장했다는데 목록이 비어 있다」로 보였고,
+//     그걸 「계획이 지워졌다」로 오해해 엉뚱한 곳을 고쳤습니다.
+//
+//  ⚠️ RAW 는 적은 그대로 넣습니다. 절대 USER_ENTERED 로 되돌리지 마십시오.
+//     수식을 넣을 일이 있어도 그 칸만 따로 처리하십시오.
+// ══════════════════════════════════════════════════════════════════
+
 async function api(path, options = {}) {
   const token = await getToken();
   const res = await fetch(
@@ -129,7 +149,7 @@ async function createTab(tab, headers = []) {
     body: JSON.stringify({ requests: [{ addSheet: { properties: { title: tab } } }] }),
   });
   if (headers.length) {
-    await api(`/values/${encodeURIComponent(tab)}!A1:append?valueInputOption=USER_ENTERED`, {
+    await api(`/values/${encodeURIComponent(tab)}!A1:append?valueInputOption=RAW`, {
       method: "POST",
       body: JSON.stringify({ values: [headers] }),
     });
@@ -141,7 +161,7 @@ async function appendRow(tab, headers, obj) {
   const rows = await readTab(tab, headers); // 탭이 없으면 여기서 만들어진다
   void rows;
   const row = headers.map((h) => obj[h] ?? "");
-  await api(`/values/${encodeURIComponent(tab)}!A1:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, {
+  await api(`/values/${encodeURIComponent(tab)}!A1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
     method: "POST",
     body: JSON.stringify({ values: [row] }),
   });
@@ -151,7 +171,7 @@ async function appendRow(tab, headers, obj) {
 async function appendRows(tab, headers, list) {
   if (!list.length) return;
   await readTab(tab, headers);
-  await api(`/values/${encodeURIComponent(tab)}!A1:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, {
+  await api(`/values/${encodeURIComponent(tab)}!A1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
     method: "POST",
     body: JSON.stringify({ values: list.map((o) => headers.map((h) => o[h] ?? "")) }),
   });
@@ -162,7 +182,7 @@ async function updateCell(tab, headers, rowIndex, column, value) {
   const col = headers.indexOf(column);
   if (col < 0) throw new Error(`알 수 없는 컬럼: ${column}`);
   const a1 = `${String.fromCharCode(65 + col)}${rowIndex + 2}`;
-  await api(`/values/${encodeURIComponent(tab)}!${a1}?valueInputOption=USER_ENTERED`, {
+  await api(`/values/${encodeURIComponent(tab)}!${a1}?valueInputOption=RAW`, {
     method: "PUT",
     body: JSON.stringify({ values: [[value]] }),
   });
