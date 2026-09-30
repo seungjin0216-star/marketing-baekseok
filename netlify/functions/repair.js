@@ -13,7 +13,7 @@
  *  ⚠️ 아무것도 지우지 않습니다. 숫자를 원래 글자로 되돌리기만 합니다.
  *  ⚠️ 먼저 미리보기로 무엇이 바뀔지 보십시오.
  */
-const { readTab, updateCell, json } = require("./_google");
+const { readTab, updateCells, json } = require("./_google");
 
 const T = {
   name: "콘텐츠계획",
@@ -55,12 +55,12 @@ exports.handler = async (event) => {
       });
     }
 
-    let 고침 = 0, 실패 = 0;
-    for (const t of 할일) {
-      try { await updateCell(T.name, T.headers, t.i, t.칸, t.후); 고침++; }
-      catch (e) { 실패++; }
-    }
-    return json(200, { 고침, 실패, 전체: 할일.length });
+    // ⚠️ 한 번의 요청으로 몰아서 고칩니다.
+    //    하나씩 고치면 144건에서 Netlify 10초 제한에 걸립니다.
+    const 고침 = await updateCells(T.name, T.headers,
+      할일.map((t) => ({ rowIndex: t.i, column: t.칸, value: t.후 })));
+    return json(200, { 고침, 전체: 할일.length,
+                       안내: "앱을 새로고침해서 계획이 보이는지 확인하세요" });
   } catch (e) {
     return json(500, { error: e.message });
   }

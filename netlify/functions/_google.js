@@ -188,6 +188,37 @@ async function updateCell(tab, headers, rowIndex, column, value) {
   });
 }
 
+/** 여러 칸을 한 번의 요청으로 고칩니다
+ *
+ *  ⚠️ 2026-09-30 — updateCell 을 144번 부르면 Netlify 10초 제한에 걸립니다.
+ *     API 왕복 한 번에 몰아서 처리합니다.
+ *
+ *  list: [{ rowIndex, column, value }]   rowIndex 0 = 시트 2행
+ */
+async function updateCells(tab, headers, list) {
+  if (!list.length) return 0;
+  await readTab(tab, headers);
+  const data = list.map((it) => {
+    const col = headers.indexOf(it.column);
+    if (col < 0) throw new Error(`알 수 없는 컬럼: ${it.column}`);
+    return {
+      range: `${tab}!${String.fromCharCode(65 + col)}${it.rowIndex + 2}`,
+      values: [[it.value]],
+    };
+  });
+  // ⚠️ 한 번에 너무 많이 보내면 거절당합니다. 200칸씩 끊습니다.
+  let 고침 = 0;
+  for (let i = 0; i < data.length; i += 200) {
+    const 조각 = data.slice(i, i + 200);
+    await api(`/values:batchUpdate`, {
+      method: "POST",
+      body: JSON.stringify({ valueInputOption: "RAW", data: 조각 }),
+    });
+    고침 += 조각.length;
+  }
+  return 고침;
+}
+
 function json(status, body) {
   return {
     statusCode: status,
@@ -196,4 +227,4 @@ function json(status, body) {
   };
 }
 
-module.exports = { readTab, readTabFrom, appendRow, appendRows, updateCell, json };
+module.exports = { readTab, readTabFrom, appendRow, appendRows, updateCell, updateCells, json };
