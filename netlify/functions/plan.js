@@ -207,6 +207,19 @@ async function save({ 연월, items }) {
   const rows = await readTab(T.name, T.headers);
   const today = new Date().toISOString().slice(0, 10);
 
+  // ⚠️ 2026-09-30 — 같은 주제를 걸러냅니다.
+  //    프롬프트에 「두 번 쓰지 마세요」를 적어도 AI 가 가끔 같은 걸 냅니다.
+  //    사장님 시트에 똑같은 제목이 여러 번 들어간 적이 있습니다.
+  //    ⚠️ 부탁은 지켜지지 않을 수 있습니다. 코드로 막는 게 확실합니다.
+  const 본주제 = new Set();
+  items = items.filter((it) => {
+    const k = String(it.주제 || "").replace(/\s+/g, "").trim();
+    if (!k || 본주제.has(k)) return false;
+    본주제.add(k);
+    return true;
+  });
+  if (!items.length) throw new Error("저장할 계획이 없습니다.");
+
   // ── ① 새 계획을 먼저 넣습니다 ──
   //    ⚠️ 순서가 중요합니다. 넣기가 실패하면 옛 것이 그대로 남아야 합니다.
   //       표시를 먼저 했다가 넣기가 실패하면 아무것도 안 보이게 됩니다.
