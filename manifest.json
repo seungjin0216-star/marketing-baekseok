@@ -1,0 +1,23 @@
+{
+  "name": "콘텐츠 공장 · 백석직영점",
+  "short_name": "콘텐츠공장",
+  "description": "사진만 올리면 네이버 소식·인스타·당근 글을 만들어 줍니다",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#f97316",
+  "theme_color": "#f97316",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
