@@ -6,7 +6,7 @@
  *   POST /plan  {action:"save", 연월:"2026-08", items:[...]}     계획 확정 저장
  *   POST /plan  {action:"done", id:"..."}                        미션 완료 처리
  */
-const { readTab, appendRows, updateCell, clearTab, json } = require("./_google");
+const { readTab, appendRows, updateCell, json } = require("./_google");
 const { getRankBrief } = require("./_rank");
 const { getPlaceInfo, 프롬프트문장: 매장문장, 소식공백일수 } = require("./_place");
 const CFG = require("./_config");
@@ -53,7 +53,8 @@ async function getPlan() {
   const rows = await readTab(T.name, T.headers);
   const 연월 = ym();
   const 주차 = weekOfMonth();
-  const month = rows.filter((r) => r["연월"] === 연월);
+  // ⚠️ '대체됨' 은 옛 계획입니다. 시트에는 남아 있지만 화면에는 안 보여줍니다 (26-09-30)
+  const month = rows.filter((r) => r["연월"] === 연월 && r["상태"] !== "대체됨");
 
   // 홈에 "지금 밀리는 키워드"를 같이 보여준다. 실패해도 계획은 나와야 한다.
   let 순위 = null;
@@ -73,7 +74,10 @@ async function getPlan() {
   return {
     연월,
     주차,
-    이번주미션: month.filter((r) => String(r["주차"]) === String(주차) && r["상태"] !== "완료"),
+    // ⚠️ '대체됨' 은 옛 계획입니다. 지우지 않고 표시만 해둔 것이라 여기서 거릅니다 (26-09-30)
+    이번주미션: month.filter((r) =>
+      String(r["주차"]) === String(주차) &&
+      r["상태"] !== "완료" && r["상태"] !== "대체됨"),
     이번달계획: month,
     지난달있음: rows.some((r) => r["연월"] < 연월),
     지점: CFG.BRANCH,
@@ -179,30 +183,34 @@ ${인사이트.length ? 인사이트.join("\n") : "수집된 내용 없음"}
   return { items: parsed.items || [] };
 }
 
-// ⚠️ 2026-09-29 — 그 달 계획을 **갈아끼웁니다**
+// ══════════════════════════════════════════════════════════
+//  계획 저장 — 옛 것은 「대체됨」으로 표시만 합니다
 //
-//    그전에는 append 만 해서 「AI에게 계획 제안받기」를 누를 때마다 쌓였습니다.
-//    사장님 시트에 같은 글이 24건까지 불었습니다.
+//  🔴 2026-09-30 — 처음에는 「지우고 다시 넣기」로 만들었다가 사고가 났습니다.
+//     clearTab 으로 지운 뒤 appendRows 로 다시 넣는 방식이었는데,
+//     **지우기는 됐고 넣기가 실패해서 사장님 계획이 통째로 날아갔습니다.**
+//     방금 받은 6건까지 전부 사라졌습니다.
 //
-//    ⚠️ 이미 완료한 것은 남깁니다. 한 일까지 지우면 기록이 사라집니다.
-//    ⚠️ 다른 달 계획은 건드리지 않습니다.
+//  ⚠️ 되돌릴 수 없는 일(지우기)을 중간에 끊기면 복구할 방법이 없습니다.
+//     그래서 이제 **아무것도 지우지 않습니다.**
+//     옛 계획은 상태를 '대체됨' 으로 바꾸기만 하고, 시트에는 그대로 남습니다.
+//     읽을 때만 건너뜁니다 (getPlan 참조).
+//
+//  ⚠️ 한 줄씩 고치므로 중간에 끊겨도 **이미 고친 것까지만** 반영됩니다.
+//     새 계획은 그 뒤에 무조건 들어갑니다. 최악이라도 겹쳐 보일 뿐 사라지지 않습니다.
+//
+//  ⚠️ 이미 완료한 것은 손대지 않습니다. 한 일의 기록입니다.
+//  ⚠️ 다른 달 계획도 손대지 않습니다.
+// ══════════════════════════════════════════════════════════
 async function save({ 연월, items }) {
   if (!Array.isArray(items) || !items.length) throw new Error("저장할 계획이 없습니다.");
   const rows = await readTab(T.name, T.headers);
   const today = new Date().toISOString().slice(0, 10);
 
-  // 남길 것: 다른 달 전부 + 이 달에서 이미 완료한 것
-  const 남길것 = rows.filter((r) =>
-    String(r["연월"]) !== String(연월) || String(r["상태"]) === "완료"
-  );
-  const 지운수 = rows.length - 남길것.length;
-
-  if (지운수 > 0) {
-    await clearTab(T.name, T.headers);
-    if (남길것.length) await appendRows(T.name, T.headers, 남길것);
-  }
-
-  let next = 남길것.length + 1;
+  // ── ① 새 계획을 먼저 넣습니다 ──
+  //    ⚠️ 순서가 중요합니다. 넣기가 실패하면 옛 것이 그대로 남아야 합니다.
+  //       표시를 먼저 했다가 넣기가 실패하면 아무것도 안 보이게 됩니다.
+  let next = rows.length + 1;
   await appendRows(T.name, T.headers, items.map((it) => ({
     id: `${연월}-${next++}`,
     연월,
@@ -214,7 +222,26 @@ async function save({ 연월, items }) {
     생성일: today,
     완료일: "",
   })));
-  return { saved: items.length, 지운수 };
+
+  // ── ② 그 다음에 옛 것을 「대체됨」으로 표시합니다 ──
+  //    ⚠️ 지우지 않습니다. 시트에 그대로 남아 언제든 되살릴 수 있습니다.
+  //    ⚠️ 여기서 끊겨도 새 계획은 이미 ①에서 들어갔습니다.
+  //       최악이라도 옛 것이 겹쳐 보일 뿐, 사라지지는 않습니다.
+  let 표시함 = 0;
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    if (String(r["연월"]) !== String(연월)) continue;   // 다른 달은 그대로
+    const 상태 = String(r["상태"] || "");
+    if (상태 === "완료" || 상태 === "대체됨") continue;  // 한 일과 이미 표시한 것은 그대로
+    try {
+      await updateCell(T.name, T.headers, i, "상태", "대체됨");
+      표시함++;
+    } catch (e) {
+      // ⚠️ 한 줄이 실패해도 나머지는 계속합니다. 새 계획은 이미 들어갔습니다.
+    }
+  }
+
+  return { saved: items.length, 대체됨: 표시함 };
 }
 
 async function markDone({ id }) {
