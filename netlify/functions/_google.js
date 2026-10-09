@@ -222,7 +222,10 @@ async function updateCells(tab, headers, list) {
 function json(status, body) {
   return {
     statusCode: status,
-    headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" },
+    // 🔗 26-10-09 사장앱이 직접 부릅니다 — 사장님 「이동되는 어플 없이 통합어플 내에서 전부 다 가능하게」
+    //    사장앱은 text/plain 으로 보내서(사전 확인 없음) 이 한 줄이면 됩니다. 사장앱 주소만 허용
+    headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store",
+               "Access-Control-Allow-Origin": "https://endearing-frangollo-dc109d.netlify.app" },
     body: JSON.stringify(body),
   };
 }
