@@ -62,7 +62,13 @@ async function sendSms(text) {
   return `${type} 발송`;
 }
 
+// 🔕 26-10-09 사장님: 「현재 솔라피에서 콘텐츠 계획 관련해서 문자가 오는데 문자 기능 잠시 멈추고 알림으로 대체하자」
+//    → 꺼 둡니다 (지우지 않음 · 다시 켜려면 true). 대신 사장앱 08:00 점검이 폰 알림으로 보냄
+//       (계획 없음 · 월요일 이번 주 미션 · 화·금 남은 미션 — 네이버순위트래커/netlify/functions/_owner.mjs ③)
+const SMS_ON = false;
+
 exports.handler = async (event) => {
+  if (!SMS_ON) return json(200, { sent: false, reason: "문자 꺼짐 — 사장앱 알림으로 대체 (26-10-09)" });
   try {
     const d = nowKST();
     const 연월 = ym(d);
