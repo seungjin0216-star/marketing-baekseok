@@ -10,6 +10,20 @@
 
 ---
 
+## 📇 한눈에 — 6칸 (26-10-15 · 모든 앱 같은 꼴 · 문서/00_지도.md)
+
+| 칸 | 내용 |
+|---|---|
+| 무엇 | ✍️ 마케팅 서버 (계획·AI 글) — 화면은 사장앱 📣 글 탭 |
+| 상태 | ✅ 서버로만 |
+| 주소·서버 | https://auto-marketing.netlify.app · 🌐 공개 저장소 |
+| 구조 | netlify/functions plan·generate·publish · 구글 시트 |
+| 🔐 비밀·보안 | Netlify GEMINI_API_KEY·GOOGLE_CREDENTIALS·SHEET_ID·SOLAPI_*(문자 꺼짐) · CORS 는 사장앱 주소만 — 전체는 `문서/20_보안_점검표.md` |
+| 🔁 복제 | §4 |
+| 🔧 문제 기록 | §3 |
+
+---
+
 ## 0. ⚠️ 건드리기 전
 
 ```
